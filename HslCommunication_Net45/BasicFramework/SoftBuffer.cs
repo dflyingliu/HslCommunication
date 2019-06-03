@@ -45,6 +45,136 @@ namespace HslCommunication.BasicFramework
 
         #endregion
 
+        #region Bool Operate Support
+
+        /// <summary>
+        /// 设置指定的位置的数据块，如果超出，则丢弃数据
+        /// </summary>
+        /// <param name="value">bool值</param>
+        /// <param name="destIndex">目标存储的索引</param>
+        /// <exception cref="IndexOutOfRangeException"></exception>
+        public void SetBool( bool value, int destIndex )
+        {
+            SetBool( new bool[] { value }, destIndex );
+        }
+
+        /// <summary>
+        /// 设置指定的位置的数据块，如果超出，则丢弃数据
+        /// </summary>
+        /// <param name="value">bool数组值</param>
+        /// <param name="destIndex">目标存储的索引</param>
+        /// <exception cref="IndexOutOfRangeException"></exception>
+        public void SetBool( bool[] value, int destIndex )
+        {
+            if (value != null)
+            {
+                try
+                {
+                    hybirdLock.Enter( );
+                    for (int i = 0; i < value.Length; i++)
+                    {
+                        int byteIndex = (destIndex + i) / 8;
+                        int offect = (destIndex + i) % 8;
+
+                        if (value[i])
+                        {
+                            buffer[byteIndex] = (byte)(buffer[byteIndex] | getOrByte( offect ));
+                        }
+                        else
+                        {
+                            buffer[byteIndex] = (byte)(buffer[byteIndex] & getAndByte( offect ));
+                        }
+                    }
+
+                    hybirdLock.Leave( );
+                }
+                catch
+                {
+                    hybirdLock.Leave( );
+                    throw;
+                }
+            }
+
+        }
+
+        /// <summary>
+        /// 获取指定的位置的bool值，如果超出，则引发异常
+        /// </summary>
+        /// <param name="destIndex">目标存储的索引</param>
+        /// <returns>获取索引位置的bool数据值</returns>
+        /// <exception cref="IndexOutOfRangeException"></exception>
+        public bool GetBool( int destIndex )
+        {
+            return GetBool( destIndex, 1 )[0];
+        }
+
+        /// <summary>
+        /// 获取指定位置的bool数组值，如果超过，则引发异常
+        /// </summary>
+        /// <param name="destIndex">目标存储的索引</param>
+        /// <param name="length">读取的数组长度</param>
+        /// <exception cref="IndexOutOfRangeException"></exception>
+        /// <returns>bool数组值</returns>
+        public bool[] GetBool( int destIndex, int length )
+        {
+            bool[] result = new bool[length];
+            try
+            {
+                hybirdLock.Enter( );
+                for (int i = 0; i < length; i++)
+                {
+                    int byteIndex = (destIndex + i) / 8;
+                    int offect = (destIndex + i) % 8;
+
+                    result[i] = (buffer[byteIndex] & getOrByte( offect )) == getOrByte( offect );
+                }
+
+                hybirdLock.Leave( );
+            }
+            catch
+            {
+                hybirdLock.Leave( );
+                throw;
+            }
+            return result;
+        }
+
+        private byte getAndByte(int offect )
+        {
+            switch (offect)
+            {
+                case 0: return 0xFE;
+                case 1: return 0xFD;
+                case 2: return 0xFB;
+                case 3: return 0xF7;
+                case 4: return 0xEF;
+                case 5: return 0xDF;
+                case 6: return 0xBF;
+                case 7: return 0x7F;
+                default: return 0xFF;
+            }
+        }
+
+
+        private byte getOrByte( int offect )
+        {
+            switch (offect)
+            {
+                case 0: return 0x01;
+                case 1: return 0x02;
+                case 2: return 0x04;
+                case 3: return 0x08;
+                case 4: return 0x10;
+                case 5: return 0x20;
+                case 6: return 0x40;
+                case 7: return 0x80;
+                default: return 0x00;
+            }
+        }
+        
+
+        #endregion
+
         #region Byte Operate Support
 
         /// <summary>
@@ -70,7 +200,7 @@ namespace HslCommunication.BasicFramework
                 hybirdLock.Leave( );
             }
         }
-        
+
         /// <summary>
         /// 设置指定的位置的数据块，如果超出，则丢弃数据
         /// </summary>
@@ -161,7 +291,7 @@ namespace HslCommunication.BasicFramework
         /// <param name="index">索引位置</param>
         public void SetValue(byte value, int index )
         {
-            SetBytes( new byte[value], index );
+            SetBytes( new byte[] { value }, index );
         }
  
         /// <summary>
@@ -511,7 +641,7 @@ namespace HslCommunication.BasicFramework
         /// <returns>double数据</returns>
         public double GetDouble( int index )
         {
-            return GetUInt64( index, 1 )[0];
+            return GetDouble( index, 1 )[0];
         }
 
         #endregion

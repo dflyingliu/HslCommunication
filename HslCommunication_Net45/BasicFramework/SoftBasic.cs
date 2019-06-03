@@ -52,11 +52,40 @@ namespace HslCommunication.BasicFramework
         /// </example>
         public static string CalculateStreamMD5( Stream stream )
         {
-            MD5 md5 = new MD5CryptoServiceProvider( );
-            byte[] bytes_md5 = md5.ComputeHash( stream );
+            byte[] bytes_md5 = null;
+            using (MD5 md5 = new MD5CryptoServiceProvider( ))
+            {
+                bytes_md5 = md5.ComputeHash( stream );
+            }
             return BitConverter.ToString( bytes_md5 ).Replace( "-", "" );
         }
 
+        /// <summary>
+        /// 获取文本字符串信息的Md5码，编码为UTF8
+        /// </summary>
+        /// <param name="data">文本数据信息</param>
+        /// <returns>Md5字符串</returns>
+        public static string CalculateStreamMD5( string data )
+        {
+            return CalculateStreamMD5( data, Encoding.UTF8 );
+        }
+
+        /// <summary>
+        /// 获取文本字符串信息的Md5码，使用指定的编码
+        /// </summary>
+        /// <param name="data">文本数据信息</param>
+        /// <param name="encode">编码信息</param>
+        /// <returns>Md5字符串</returns>
+        public static string CalculateStreamMD5( string data, Encoding encode )
+        {
+            string str_md5 = string.Empty;
+            using (MD5 md5 = new MD5CryptoServiceProvider( ))
+            {
+                byte[] bytes_md5 = md5.ComputeHash( encode.GetBytes( data ) );
+                str_md5 = BitConverter.ToString( bytes_md5 ).Replace( "-", "" );
+            }
+            return str_md5;
+        }
 
 #if !NETSTANDARD2_0
         /// <summary>
@@ -82,7 +111,7 @@ namespace HslCommunication.BasicFramework
         #endregion
 
         #region DataSize Format
-        
+
         /// <summary>
         /// 从一个字节大小返回带单位的描述
         /// </summary>
@@ -170,15 +199,8 @@ namespace HslCommunication.BasicFramework
 
             if (array.Length == max)
             {
-                for (int i = 0; i < array.Length - data.Length; i++)
-                {
-                    array[i] = array[i + 1];
-                }
-
-                for (int i = 0; i < data.Length; i++)
-                {
-                    array[array.Length - data.Length + i] = data[i];
-                }
+                Array.Copy( array, data.Length, array, 0, array.Length - data.Length );
+                Array.Copy( data, 0, array, array.Length - data.Length, data.Length );
             }
             else
             {
@@ -659,11 +681,39 @@ namespace HslCommunication.BasicFramework
             return HexStringToBytes( Encoding.ASCII.GetString( inBytes ) );
         }
 
+        /// <summary>
+        /// 从字节构建一个ASCII格式的数据内容
+        /// </summary>
+        /// <param name="value">数据</param>
+        /// <returns>ASCII格式的字节数组</returns>
+        public static byte[] BuildAsciiBytesFrom( byte value )
+        {
+            return Encoding.ASCII.GetBytes( value.ToString( "X2" ) );
+        }
+
+        /// <summary>
+        /// 从short构建一个ASCII格式的数据内容
+        /// </summary>
+        /// <param name="value">数据</param>
+        /// <returns>ASCII格式的字节数组</returns>
+        public static byte[] BuildAsciiBytesFrom( short value )
+        {
+            return Encoding.ASCII.GetBytes( value.ToString( "X4" ) );
+        }
+
+        /// <summary>
+        /// 从ushort构建一个ASCII格式的数据内容
+        /// </summary>
+        /// <param name="value">数据</param>
+        /// <returns>ASCII格式的字节数组</returns>
+        public static byte[] BuildAsciiBytesFrom( ushort value )
+        {
+            return Encoding.ASCII.GetBytes( value.ToString( "X4" ) );
+        }
 
         #endregion
 
         #region Bool[] and byte[] transform
-
 
         /// <summary>
         /// 将bool数组转换到byte数组 ->
@@ -794,6 +844,19 @@ namespace HslCommunication.BasicFramework
         }
 
         /// <summary>
+        /// 选择一个byte数组的前面的几个byte数据信息
+        /// </summary>
+        /// <param name="value">原始的数据信息</param>
+        /// <param name="length">数据的长度</param>
+        /// <returns>选择的前面的几个数据信息</returns>
+        public static byte[] BytesArraySelectBegin( byte[] value, int length )
+        {
+            byte[] buffer = new byte[Math.Min( value.Length, length )];
+            Array.Copy( value, 0, buffer, 0, buffer.Length );
+            return buffer;
+        }
+
+        /// <summary>
         /// 将一个byte数组的前面指定位数移除，返回新的一个数组 ->
         /// Removes the preceding specified number of bits in a byte array, returning a new array
         /// </summary>
@@ -856,7 +919,7 @@ namespace HslCommunication.BasicFramework
         /// <remarks>
         /// 当你要显示本组件框架的版本号的时候，就可以用这个属性来显示
         /// </remarks>
-        public static SystemVersion FrameworkVersion { get; set; } = new SystemVersion( "5.7.4" );
+        public static SystemVersion FrameworkVersion { get; set; } = new SystemVersion( "6.2.4" );
 
 
         #endregion

@@ -490,7 +490,7 @@ namespace HslCommunication.Core.Net
         /// <param name="filetag">文件的额外标签</param>
         /// <param name="fileupload">文件的上传人</param>
         /// <param name="sendReport">发送进度报告</param>
-        /// <returns></returns>
+        /// <returns>是否成功的结果对象</returns>
         protected OperateResult SendFileAndCheckReceive(
             Socket socket,
             Stream stream,
@@ -525,7 +525,7 @@ namespace HslCommunication.Core.Net
         /// </summary>
         /// <param name="socket">套接字</param>
         /// <param name="timeout">超时时间设置，如果为负数，则不检查超时</param>
-        /// <returns></returns>
+        /// <returns>包含是否成功的结果对象</returns>
         /// <exception cref="ArgumentNullException">result</exception>
         protected OperateResult<byte[], byte[]> ReceiveAndCheckBytes( Socket socket, int timeout )
         {
@@ -575,7 +575,7 @@ namespace HslCommunication.Core.Net
         /// [自校验] 从网络中接收一个字符串数据，如果结果异常，则结束通讯
         /// </summary>
         /// <param name="socket">套接字</param>
-        /// <returns></returns>
+        /// <returns>包含是否成功的结果对象</returns>
         protected OperateResult<int, string> ReceiveStringContentFromSocket( Socket socket )
         {
             OperateResult<byte[], byte[]> receive = ReceiveAndCheckBytes( socket, 10000 );
@@ -599,8 +599,8 @@ namespace HslCommunication.Core.Net
         /// <summary>
         /// [自校验] 从网络中接收一串字节数据，如果结果异常，则结束通讯
         /// </summary>
-        /// <param name="socket">套接字</param>
-        /// <returns></returns>
+        /// <param name="socket">套接字的网络</param>
+        /// <returns>包含是否成功的结果对象</returns>
         protected OperateResult<int, byte[]> ReceiveBytesContentFromSocket( Socket socket )
         {
             OperateResult<byte[], byte[]> receive = ReceiveAndCheckBytes( socket, 10000 );
@@ -622,8 +622,8 @@ namespace HslCommunication.Core.Net
         /// <summary>
         /// [自校验] 从套接字中接收文件头信息
         /// </summary>
-        /// <param name="socket"></param>
-        /// <returns></returns>
+        /// <param name="socket">套接字的网络</param>
+        /// <returns>包含文件信息的结果对象</returns>
         protected OperateResult<FileBaseInfo> ReceiveFileHeadFromSocket( Socket socket )
         {
             // 先接收文件头信息
@@ -645,12 +645,12 @@ namespace HslCommunication.Core.Net
             try
             {
                 // 提取信息
-                Newtonsoft.Json.Linq.JObject json = Newtonsoft.Json.Linq.JObject.Parse( receiveString.Content2 );
-                result.Content.Name = SoftBasic.GetValueFromJsonObject( json, "FileName", "" );
-                result.Content.Size = SoftBasic.GetValueFromJsonObject( json, "FileSize", 0L );
-                result.Content.Tag = SoftBasic.GetValueFromJsonObject( json, "FileTag", "" );
-                result.Content.Upload = SoftBasic.GetValueFromJsonObject( json, "FileUpload", "" );
-                result.IsSuccess = true;
+                Newtonsoft.Json.Linq.JObject json  = Newtonsoft.Json.Linq.JObject.Parse( receiveString.Content2 );
+                result.Content.Name                = SoftBasic.GetValueFromJsonObject( json, "FileName", "" );
+                result.Content.Size                = SoftBasic.GetValueFromJsonObject( json, "FileSize", 0L );
+                result.Content.Tag                 = SoftBasic.GetValueFromJsonObject( json, "FileTag", "" );
+                result.Content.Upload              = SoftBasic.GetValueFromJsonObject( json, "FileUpload", "" );
+                result.IsSuccess                   = true;
             }
             catch (Exception ex)
             {
@@ -667,7 +667,7 @@ namespace HslCommunication.Core.Net
         /// <param name="socket">网络套接字</param>
         /// <param name="savename">接收文件后保存的文件名</param>
         /// <param name="receiveReport">接收进度报告</param>
-        /// <returns></returns>
+        /// <returns>包含文件信息的结果对象</returns>
         protected OperateResult<FileBaseInfo> ReceiveFileFromSocket( Socket socket, string savename, Action<long, long> receiveReport )
         {
             // 先接收文件头信息
@@ -676,10 +676,18 @@ namespace HslCommunication.Core.Net
 
             try
             {
+                OperateResult write = null;
                 using (FileStream fs = new FileStream( savename, FileMode.Create, FileAccess.Write ))
                 {
-                    WriteStream( socket, fs, fileResult.Content.Size, receiveReport, true );
+                    write = WriteStream( socket, fs, fileResult.Content.Size, receiveReport, true );
                 }
+
+                if (!write.IsSuccess)
+                {
+                    if (File.Exists( savename )) File.Delete( savename );
+                    return OperateResult.CreateFailedResult<FileBaseInfo>( write );
+                }
+
                 return fileResult;
             }
             catch (Exception ex)
@@ -847,12 +855,12 @@ namespace HslCommunication.Core.Net
         /// <summary>
         /// 发送一个流的所有数据到网络套接字
         /// </summary>
-        /// <param name="socket"></param>
-        /// <param name="stream"></param>
-        /// <param name="receive"></param>
-        /// <param name="report"></param>
-        /// <param name="reportByPercent"></param>
-        /// <returns></returns>
+        /// <param name="socket">套接字</param>
+        /// <param name="stream">内存流</param>
+        /// <param name="receive">发送的数据长度</param>
+        /// <param name="report">进度报告的委托</param>
+        /// <param name="reportByPercent">进度报告是否按照百分比报告</param>
+        /// <returns>是否成功的结果对象</returns>
         protected OperateResult SendStream( Socket socket, Stream stream, long receive, Action<long, long> report, bool reportByPercent )
         {
             byte[] buffer = new byte[102400]; // 100K的数据缓存池
@@ -906,12 +914,12 @@ namespace HslCommunication.Core.Net
         /// <summary>
         /// 从套接字中接收所有的数据然后写入到流当中去
         /// </summary>
-        /// <param name="socket"></param>
-        /// <param name="stream"></param>
-        /// <param name="totalLength"></param>
-        /// <param name="report"></param>
-        /// <param name="reportByPercent"></param>
-        /// <returns></returns>
+        /// <param name="socket">套接字</param>
+        /// <param name="stream">数据流</param>
+        /// <param name="totalLength">所有数据的长度</param>
+        /// <param name="report">进度报告</param>
+        /// <param name="reportByPercent">进度报告是否按照百分比</param>
+        /// <returns>是否成功的结果对象</returns>
         protected OperateResult WriteStream( Socket socket, Stream stream, long totalLength, Action<long, long> report, bool reportByPercent )
         {
             long count_receive = 0;
@@ -967,7 +975,7 @@ namespace HslCommunication.Core.Net
         /// <summary>
         /// 获取本对象的字符串表示形式
         /// </summary>
-        /// <returns></returns>
+        /// <returns>字符串信息</returns>
         public override string ToString()
         {
             return "NetworkXBase";
